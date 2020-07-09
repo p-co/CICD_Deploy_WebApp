@@ -75,14 +75,10 @@ data "aws_availability_zones" "all" {}
 ########################################################################
 # Security Groups
 data "aws_security_group" "web-sg-asg" {
-  tags = {
-    Name = "${var.env}-sg-asg"
-  }
+  name = "${var.env}-sg-asg"
 }
 data "aws_security_group" "web-sg-elb" {
-  tags = {
-    Name = "${var.env}-sg-elb"
-  }
+  name = "${var.env}-sg-elb"
 }
 ## ASG
 # resource "aws_security_group" "web-sg-asg" {
