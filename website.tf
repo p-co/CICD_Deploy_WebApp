@@ -126,6 +126,11 @@ data "aws_security_group" "web-sg-elb" {
 resource "aws_launch_configuration" "web-lc" {
   image_id      = data.aws_ami.selected.id
   instance_type = "t2.micro"
+  user_data = << EOF
+		#! /bin/bash
+		cd /var/www/beerz
+    symfony server:start
+	EOF
   #  key_name = ""  # Si vous voulez utiliser une KeyPair pour vous connecter aux instances
   security_groups = [data.aws_security_group.web-sg-asg.id]
   lifecycle {
