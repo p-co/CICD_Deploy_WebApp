@@ -5,11 +5,11 @@ provider "aws" {
 # Variables normalement dans un autre fichier (variables.tf) mais pour faire simple.... ca marche aussi !!!
 variable "env" {
   type    = string
-  default = "dev"
+  default = "dev" # TODO make this dynamic
 }
 
 ####################################################################
-# On recherche la derniere AMI créée avec le Name TAG PackerAnsible-Apache
+# On recherche la derniere AMI créée avec le Name TAG Packer-Ansible
 data "aws_ami" "selected" {
   owners = ["self"]
   filter {
@@ -74,53 +74,64 @@ data "aws_availability_zones" "all" {}
 
 ########################################################################
 # Security Groups
+data "aws_security_group" "web-sg-asg" {
+  tags = {
+    Name = "${var.env}-sg-asg"
+  }
+}
+data "aws_security_group" "web-sg-elb" {
+  tags = {
+    Name = "${var.env}-sg-elb"
+  }
+}
 ## ASG
-resource "aws_security_group" "web-sg-asg" {
-  name   = "${var.env}-sg-asg"
-  vpc_id = data.aws_vpc.selected.id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port       = 443
-    protocol        = "tcp"
-    to_port         = 443
-    security_groups = [aws_security_group.web-sg-elb.id] # on authorise en entrée de l'ASG que le flux venant de l'ELB
-  }
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-## ELB
-resource "aws_security_group" "web-sg-elb" {
-  name   = "${var.env}-sg-elb"
-  vpc_id = data.aws_vpc.selected.id
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 443
-    protocol    = "tcp"
-    to_port     = 443
-    cidr_blocks = ["0.0.0.0/0"]   # Normalement Ouvert sur le web sauf dans le cas d'un site web Privé(Exemple Intranet ou nous qui ne voulons pas exposer le site)
-  }
-  lifecycle {
-    create_before_destroy = true
-  }
-}
+# resource "aws_security_group" "web-sg-asg" {
+#   name   = "${var.env}-sg-asg"
+#   vpc_id = data.aws_vpc.selected.id
+#   egress {
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+#   ingress {
+#     from_port       = 443
+#     protocol        = "tcp"
+#     to_port         = 443
+#     security_groups = [aws_security_group.web-sg-elb.id] # on authorise en entrée de l'ASG que le flux venant de l'ELB
+#   }
+#   lifecycle {
+#     create_before_destroy = true
+#   }
+# }
+# ## retrieve RDS SG and change rule to authorize previous
+# ## ELB
+# resource "aws_security_group" "web-sg-elb" {
+#   name   = "${var.env}-sg-elb"
+#   vpc_id = data.aws_vpc.selected.id
+#   egress {
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
+#   ingress {
+#     from_port   = 443
+#     protocol    = "tcp"
+#     to_port     = 443
+#     cidr_blocks = ["0.0.0.0/0"]   # Normalement Ouvert sur le web sauf dans le cas d'un site web Privé(Exemple Intranet ou nous qui ne voulons pas exposer le site)
+#   }
+#   lifecycle {
+#     create_before_destroy = true
+#   }
+# }
 ##########################################################################
 # ASG Launch Configuration
 resource "aws_launch_configuration" "web-lc" {
   image_id      = data.aws_ami.selected.id
   instance_type = "t2.micro"
   #  key_name = ""  # Si vous voulez utiliser une KeyPair pour vous connecter aux instances
-  security_groups = [aws_security_group.web-sg-asg.id]
+  security_groups = [data.aws_security_group.web-sg-asg.id]
   lifecycle {
     create_before_destroy = true
   }
@@ -151,19 +162,19 @@ resource "aws_autoscaling_group" "web-asg" {
 resource "aws_elb" "web-elb" {
   name            = "${var.env}-elb"
   subnets         = [data.aws_subnet.subnet-public-1.id, data.aws_subnet.subnet-public-2.id, data.aws_subnet.subnet-public-3.id]
-  security_groups = [aws_security_group.web-sg-elb.id]
+  security_groups = [data.aws_security_group.web-sg-elb.id]
 
   listener {
-    instance_port     = 443
+    instance_port     = 443 # TODO make this dynamic
     instance_protocol = "http"
-    lb_port           = 443
+    lb_port           = 443 # TODO make this dynamic
     lb_protocol       = "http"
   }
 
   health_check {
     healthy_threshold   = 2
     interval            = 30
-    target              = "HTTP:443/"
+    target              = "HTTP:443/" # TODO make this dynamic
     timeout             = 3
     unhealthy_threshold = 2
   }
